@@ -26,6 +26,9 @@ jobs:
       - name: Checkout mobile code
         uses: actions/checkout@v5
 
+      - name: Clean project
+        run: flutter clean
+
       - name: Install dependencies
         run: flutter pub get
 
