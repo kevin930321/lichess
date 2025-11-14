@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dartchess/dartchess.dart' as d;
 import 'package:lichess_mobile/src/model/engine/engine.dart';
+import 'package:multistockfish/multistockfish.dart';
 
 final offlineGameServiceProvider = Provider((ref) {
   final service = OfflineGameService(ref);
