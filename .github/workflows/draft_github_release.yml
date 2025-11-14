@@ -52,6 +52,9 @@ jobs:
           flutter pub get
           echo "::endgroup::"
 
+      - name: Clean build_runner cache
+        run: dart run build_runner clean
+
       - name: Code generation
         run: |
           echo "::group::Build Runner"
