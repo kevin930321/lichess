@@ -40,6 +40,9 @@ jobs:
       - name: Clean project
         run: flutter clean
 
+      - name: Delete pubspec.lock
+        run: rm -f pubspec.lock
+
       - name: Upgrade dependencies
         run: flutter pub upgrade
 
