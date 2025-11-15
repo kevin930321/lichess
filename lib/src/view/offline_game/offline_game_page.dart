@@ -56,15 +56,28 @@ class _OfflineGamePageState extends ConsumerState<OfflineGamePage> {
                     aspectRatio: 1,
                     child: game == null
                         ? const CircularProgressIndicator()
-                        : const Chessground(
-                            fen: game.fen,
-                            orientation: d.Side.white,
-                            onMove: (move) {
-                              final uci = '${move.from.name}${move.to.name}${move.promotion?.name ?? ''}';
-                              service.makeMove(uci);
+                        : ValueListenableBuilder<bool>(
+                            valueListenable: service.isComputerThinking,
+                            builder: (context, isThinking, child) {
+                              return Chessboard(
+                                fen: game.fen,
+                                orientation: d.Side.white,
+                                game: GameData(
+                                  playerSide: isThinking
+                                      ? PlayerSide.none
+                                      : PlayerSide.white,
+                                  validMoves: game.legalMoves,
+                                  sideToMove: game.turn,
+                                  isCheck: game.isCheck,
+                                  onMove: (move) {
+                                    if (isThinking) return;
+                                    final uci =
+                                        '${move.from.name}${move.to.name}${move.promotion?.name ?? ''}';
+                                    service.makeMove(uci);
+                                  },
+                                ),
+                              );
                             },
-                            // Disable interaction while computer is thinking
-                            interactable: !service.isComputerThinking.value,
                           ),
                   ),
                 ),
