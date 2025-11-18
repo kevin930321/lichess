@@ -9,6 +9,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lichess_mobile/src/model/account/account_repository.dart';
 import 'package:lichess_mobile/src/model/account/ongoing_game.dart';
 import 'package:lichess_mobile/src/model/common/id.dart';
+import 'package:lichess_mobile/src/model/common/node.dart';
+import 'package:lichess_mobile/src/model/common/socket.dart';
+import 'package:lichess_mobile/src/model/common/uci.dart';
 import 'package:lichess_mobile/src/model/common/speed.dart';
 import 'package:lichess_mobile/src/model/engine/evaluation_mixin.dart';
 import 'package:lichess_mobile/src/model/engine/evaluation_preferences.dart';
@@ -97,37 +100,13 @@ class GameBody extends ConsumerStatefulWidget {
   ConsumerState<GameBody> createState() => _GameBodyState();
 }
 
-class GameStateWithAnalysis extends GameState with EvaluationMixinState {
-  GameStateWithAnalysis(GameState gameState)
-      : super(
-          game: gameState.game,
-          stepCursor: gameState.stepCursor,
-          canPremove: gameState.canPremove,
-          premove: gameState.premove,
-          liveClock: gameState.liveClock,
-          chatOptions: gameState.chatOptions,
-          isZenModeActive: gameState.isZenModeActive,
-          moveToConfirm: gameState.moveToConfirm,
-          promotionMove: gameState.promotionMove,
-          redirectGameId: gameState.redirectGameId,
-          opponentLeftCountdown: gameState.opponentLeftCountdown,
-        );
 
-  @override
-  bool get alwaysRequestCloudEval => false;
-
-  @override
-  Position get currentPosition => game.currentPosition;
-
-  @override
-  bool isEngineAvailable(EngineEvaluationPrefState prefs) =>
-      game.playable && prefs.isEnabled;
-}
-
-class _GameBodyState extends ConsumerState<GameBody> with EngineEvaluationMixin {
+class _GameBodyState extends ConsumerState<GameBody>
+    with EngineEvaluationMixin
+    implements EvaluationMixinState {
   late Root _root;
-  GameStateWithAnalysis? _gameStateWithAnalysis;
   bool _isEngineInitialized = false;
+  GameState? _gameState;
 
   @override
   void didChangeDependencies() {
@@ -143,20 +122,54 @@ class _GameBodyState extends ConsumerState<GameBody> with EngineEvaluationMixin 
   }
 
   @override
-  EngineEvaluationPrefState get evaluationPrefs => ref.read(engineEvaluationPreferencesProvider);
+  EngineEvaluationPrefState get evaluationPrefs =>
+      ref.read(engineEvaluationPreferencesProvider);
 
   @override
   EngineEvaluationPreferences get evaluationPreferencesNotifier =>
       ref.read(engineEvaluationPreferencesProvider.notifier);
 
   @override
-  EvaluationService evaluationServiceFactory() => ref.read(evaluationServiceProvider);
+  EvaluationService evaluationServiceFactory() =>
+      ref.read(evaluationServiceProvider);
 
   @override
-  EvaluationMixinState get evaluationState => _gameStateWithAnalysis!;
+  EvaluationMixinState get evaluationState => this;
 
   @override
-  Root get positionTree => _root;
+  Node get positionTree => _root;
+
+  @override
+  bool get alwaysRequestCloudEval => false;
+
+  @override
+  UciPath get currentPath {
+    final path = _root.pathAt(
+      _gameState!.stepCursor,
+      _gameState!.game.meta.variant,
+    );
+    return path;
+  }
+
+  @override
+  Position get currentPosition => _gameState!.currentPosition;
+
+  @override
+  bool isEngineAvailable(EngineEvaluationPrefState prefs) =>
+      _gameState!.game.playable && prefs.isEnabled;
+
+  @override
+  bool get engineInThreatMode => false;
+
+  @override
+  EvaluationContext get evaluationContext => EvaluationContext(
+        variant: _gameState!.game.meta.variant,
+        fen: _gameState!.game.initialFen,
+      );
+
+  @override
+  SocketClient? get socketClient =>
+      ref.read(gameControllerProvider(widget.gameId).notifier).socketClient;
 
   @override
   void dispose() {
@@ -308,11 +321,11 @@ class _GameBodyState extends ConsumerState<GameBody> with EngineEvaluationMixin 
             : boardPreferences.pieceAnimationDuration;
 
         if (gamePrefs.enableRealTimeAnalysis == true) {
-          _root = Root.fromGame(gameState.game.toPgnGame());
-          _gameStateWithAnalysis = GameStateWithAnalysis(gameState);
+          _root = Root.fromGame(gameState.game.toPgnGame);
+          _gameState = gameState;
           requestEval();
         } else {
-          _gameStateWithAnalysis = null;
+          _gameState = null;
         }
         return FocusDetector(
           onFocusRegained: () {
@@ -328,28 +341,28 @@ class _GameBodyState extends ConsumerState<GameBody> with EngineEvaluationMixin 
           child: WakelockWidget(
             shouldEnableOnFocusGained: () => gameState.game.playable,
             child: GameLayout(
-              key: boardKey,
-              engineGaugeBuilder: gamePrefs.enableRealTimeAnalysis == true && _gameStateWithAnalysis != null
+              key: widget.boardKey,
+              engineGaugeBuilder: gamePrefs.enableRealTimeAnalysis == true && _gameState != null
                   ? (context, orientation) => EngineGauge(
                         displayMode: orientation == Orientation.portrait
                             ? EngineGaugeDisplayMode.horizontal
                             : EngineGaugeDisplayMode.vertical,
                         params: (
-                          isLocalEngineAvailable: _gameStateWithAnalysis!.isEngineAvailable(evaluationPrefs),
+                          isLocalEngineAvailable: isEngineAvailable(evaluationPrefs),
                           orientation: youAre,
-                          position: _gameStateWithAnalysis!.currentPosition,
-                          savedEval: _gameStateWithAnalysis!.currentPosition.eval,
+                          position: currentPosition,
+                          savedEval: currentPosition.eval,
                           serverEval: null,
                         ),
                       )
                   : null,
-              engineLines: gamePrefs.enableRealTimeAnalysis == true && _gameStateWithAnalysis != null
+              engineLines: gamePrefs.enableRealTimeAnalysis == true && _gameState != null
                   ? EngineLines(
                       onTapMove: (move) {
                         ref.read(ctrlProvider.notifier).userMove(move);
                       },
-                      savedEval: _gameStateWithAnalysis!.currentPosition.eval,
-                      isGameOver: _gameStateWithAnalysis!.currentPosition.isGameOver,
+                      savedEval: currentPosition.eval,
+                      isGameOver: currentPosition.isGameOver,
                     )
                   : null,
               boardSettingsOverrides: BoardSettingsOverrides(
@@ -399,9 +412,9 @@ class _GameBodyState extends ConsumerState<GameBody> with EngineEvaluationMixin 
               },
               zenMode: gameState.isZenModeActive,
               userActionsBar: _GameBottomBar(
-                id: gameId,
-                onLoadGameCallback: onLoadGameCallback,
-                onNewOpponentCallback: onNewOpponentCallback,
+                id: widget.gameId,
+                onLoadGameCallback: widget.onLoadGameCallback,
+                onNewOpponentCallback: widget.onNewOpponentCallback,
               ),
             ),
           ),
@@ -415,18 +428,18 @@ class _GameBodyState extends ConsumerState<GameBody> with EngineEvaluationMixin 
             orientation: value.game.youAre,
           ),
           userActionsBar: _GameBottomBar(
-            id: gameId,
-            onLoadGameCallback: onLoadGameCallback,
-            onNewOpponentCallback: onNewOpponentCallback,
+            id: widget.gameId,
+            onLoadGameCallback: widget.onLoadGameCallback,
+            onNewOpponentCallback: widget.onNewOpponentCallback,
           ),
         );
       case final _:
         return StandaloneGameLoadingContent(
-          position: loadingPosition,
+          position: widget.loadingPosition,
           userActionsBar: _GameBottomBar(
-            id: gameId,
-            onLoadGameCallback: onLoadGameCallback,
-            onNewOpponentCallback: onNewOpponentCallback,
+            id: widget.gameId,
+            onLoadGameCallback: widget.onLoadGameCallback,
+            onNewOpponentCallback: widget.onNewOpponentCallback,
           ),
         );
     }
@@ -501,7 +514,7 @@ class _GameBodyState extends ConsumerState<GameBody> with EngineEvaluationMixin 
       if (state.requireValue.redirectGameId != null) {
         // Be sure to pop any dialogs that might be on top of the game screen.
         Navigator.of(context).popUntil((route) => route is! PopupRoute);
-        onLoadGameCallback(state.requireValue.redirectGameId!);
+        widget.onLoadGameCallback(state.requireValue.redirectGameId!);
       }
     }
   }

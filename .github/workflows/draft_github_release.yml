@@ -43,9 +43,6 @@ jobs:
       - name: Delete pubspec.lock
         run: rm -f pubspec.lock
 
-      - name: Upgrade dependencies
-        run: flutter pub upgrade
-
       - name: Install dependencies
         run: |
           echo "::group::Flutter Pub Get"
