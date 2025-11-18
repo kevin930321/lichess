@@ -324,9 +324,16 @@ class _GameBodyState extends ConsumerState<GameBody>
             PgnGame(
               headers: {
                 'Variant': gameState.game.meta.variant.label,
-                'FEN': gameState.game.initialFen,
+                if (gameState.game.initialFen != null) 'FEN': gameState.game.initialFen!,
               },
-              moves: PgnNode.fromGame(gameState.game),
+              moves: PgnNode.fromSteps(
+                gameState.game.steps.map(
+                  (e) => PgnNodeData(
+                    san: e.sanMove?.san ?? '',
+                  ),
+                ),
+              ),
+              comments: [],
             ),
           );
           _gameState = gameState;
