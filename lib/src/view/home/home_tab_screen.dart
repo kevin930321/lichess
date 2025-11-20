@@ -540,11 +540,30 @@ class _SignInWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authController = ref.watch(authControllerProvider);
 
-    return FilledButton(
-      onPressed: authController.isLoading
-          ? null
-          : () => ref.read(authControllerProvider.notifier).signIn(),
-      child: Text(context.l10n.signIn),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        FilledButton(
+          onPressed: authController.isLoading
+              ? null
+              : () => ref.read(authControllerProvider.notifier).signIn(),
+          child: Text(context.l10n.signIn),
+        ),
+        if (authController.hasError) ...[
+          const SizedBox(height: 8.0),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              'Login error: ${authController.error}',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.error,
+                fontSize: 12,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
