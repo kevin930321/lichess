@@ -47,7 +47,20 @@ class AuthRepository {
 
       if (response.statusCode >= 400) {
         _log.warning('Login failed with status ${response.statusCode}: ${response.body}');
-        throw Exception('Login failed: ${response.reasonPhrase}');
+        
+        // 提供使用者友好的錯誤訊息
+        String errorMessage;
+        if (response.statusCode == 401 || response.statusCode == 403) {
+          errorMessage = 'Invalid username or password.\n\nStatus: ${response.statusCode}';
+        } else if (response.statusCode == 429) {
+          errorMessage = 'Too many login attempts.\n\nPlease try again later.';
+        } else if (response.statusCode >= 500) {
+          errorMessage = 'Server error (${response.statusCode})\n\nLichess server is having issues. Please try again later.';
+        } else {
+          errorMessage = 'Login failed (Status: ${response.statusCode})\n\n${response.body}';
+        }
+        
+        throw Exception(errorMessage);
       }
 
       // Cookie is automatically saved by the CookieManager in LichessClient
@@ -61,9 +74,20 @@ class AuthRepository {
       _log.info('Successfully signed in as ${user.username}');
 
       return AuthSessionState(user: user.lightUser);
+    } on Exception {
+      // 重新拋出 Exception（已經有友好訊息）
+      rethrow;
     } catch (e, st) {
       _log.severe('Sign in failed: $e', e, st);
-      rethrow;
+      
+      // 將其他錯誤包裝成友好的訊息
+      if (e.toString().contains('SocketException') || e.toString().contains('Failed host lookup')) {
+        throw Exception('Network error\n\nCannot connect to lichess.org\n\nError: ${e.toString()}');
+      } else if (e.toString().contains('TimeoutException')) {
+        throw Exception('Request timeout\n\nServer took too long to respond\n\nError: ${e.toString()}');
+      } else {
+        throw Exception('Unexpected error\n\n${e.toString()}');
+      }
     }
   }
 
