@@ -26,6 +26,7 @@ class AuthRepository {
 
     try {
       // Post login credentials
+      _log.info('Sending POST request to /login endpoint');
       final response = await _client.post(
         Uri(path: '/login'),
         headers: {
@@ -40,7 +41,9 @@ class AuthRepository {
         },
       );
 
-      _log.fine('Login response status: ${response.statusCode}');
+      _log.info('Login response status: ${response.statusCode}');
+      _log.info('Login response headers: ${response.headers}');
+      _log.info('Login response body: ${response.body}');
 
       if (response.statusCode >= 400) {
         _log.warning('Login failed with status ${response.statusCode}: ${response.body}');
@@ -49,6 +52,7 @@ class AuthRepository {
 
       // Cookie is automatically saved by the CookieManager in LichessClient
       // Now fetch user account data
+      _log.info('Fetching user account data from /api/account');
       final user = await _client.readJson(
         Uri(path: '/api/account'),
         mapper: User.fromServerJson,
@@ -58,7 +62,7 @@ class AuthRepository {
 
       return AuthSessionState(user: user.lightUser);
     } catch (e, st) {
-      _log.severe('Sign in failed', e, st);
+      _log.severe('Sign in failed: $e', e, st);
       rethrow;
     }
   }
