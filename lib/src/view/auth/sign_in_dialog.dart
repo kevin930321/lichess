@@ -75,8 +75,22 @@ class _SignInDialogState extends ConsumerState<SignInDialog> {
         Navigator.of(context).pop();
       }
     } catch (e) {
+      // 提取詳細的錯誤訊息
+      String errorDetails = e.toString();
+      
+      // 嘗試從錯誤訊息中提取更多資訊
+      if (errorDetails.contains('Login failed')) {
+        // 保持原始錯誤訊息
+      } else if (errorDetails.contains('SocketException') || errorDetails.contains('Failed host lookup')) {
+        errorDetails = 'Network error: Cannot connect to lichess.org\n\nPlease check your internet connection.';
+      } else if (errorDetails.contains('TimeoutException')) {
+        errorDetails = 'Request timeout\n\nThe server took too long to respond.';
+      } else if (errorDetails.contains('FormatException')) {
+        errorDetails = 'Invalid response from server\n\nThe server returned an unexpected format.';
+      }
+      
       setState(() {
-        _errorMessage = 'Login failed: ${e.toString()}';
+        _errorMessage = errorDetails;
       });
     }
   }
@@ -224,12 +238,22 @@ class _SignInDialogState extends ConsumerState<SignInDialog> {
             contentPadding: EdgeInsets.zero,
           ),
         if (_errorMessage != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            _errorMessage!,
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.error,
-              fontSize: 12,
+          const SizedBox(height: 12),
+          Container(
+            constraints: const BoxConstraints(maxHeight: 150),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.errorContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: SingleChildScrollView(
+              child: Text(
+                _errorMessage!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onErrorContainer,
+                  fontSize: 12,
+                ),
+              ),
             ),
           ),
         ],
