@@ -15,4 +15,3 @@ dependencyResolutionManagement {
 }
 rootProject.name = "LinovelibReader"
 include ':app'
-project(':app').projectDir = new File('app/app')
